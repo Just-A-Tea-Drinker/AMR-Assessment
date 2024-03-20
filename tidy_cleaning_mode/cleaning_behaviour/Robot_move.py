@@ -420,7 +420,7 @@ class Move(Node):
             
             #print(path_made)
                                     
-            if self.path_made ==False:
+            if self.path_made ==True:
                 
                 #getting and setting the initial pose
                 if self.to_start ==False:
@@ -479,61 +479,62 @@ class Move(Node):
                     else:
                         print('Goal has an invalid return status!')
                 else:
-                    if self.box_move ==False:
-                        quaternion =self.eularToQuaternion(math.radians(self.yaw))
-                        initial_pose = PoseStamped()
-                        initial_pose.header.frame_id = 'map'
-                        initial_pose.header.stamp = self.navigator.get_clock().now().to_msg()
-                        initial_pose.pose.position.x = self.X
-                        initial_pose.pose.position.y = self.Y
-                        initial_pose.pose.orientation.z = quaternion[2]
-                        initial_pose.pose.orientation.w = quaternion[3]
+                     if self.box_move ==False:
+                        print("Build the code you lazy sod")
+                #         quaternion =self.eularToQuaternion(math.radians(self.yaw))
+                #         initial_pose = PoseStamped()
+                #         initial_pose.header.frame_id = 'map'
+                #         initial_pose.header.stamp = self.navigator.get_clock().now().to_msg()
+                #         initial_pose.pose.position.x = self.X
+                #         initial_pose.pose.position.y = self.Y
+                #         initial_pose.pose.orientation.z = quaternion[2]
+                #         initial_pose.pose.orientation.w = quaternion[3]
 
-                        self.navigator.setInitialPose(initial_pose)
+                #         self.navigator.setInitialPose(initial_pose)
                             
-                        # Wait for navigation to fully activate, since autostarting nav2
-                        self.navigator.waitUntilNav2Active()
+                #         # Wait for navigation to fully activate, since autostarting nav2
+                #         self.navigator.waitUntilNav2Active()
                         
-                        #calcualting a comprehensive movement plan to push the boxes eg
-                        box_poses = self.BoxPathCreate()
+                #         #calcualting a comprehensive movement plan to push the boxes eg
+                #         box_poses = self.BoxPathCreate()
 
                     
-                        # sanity check a valid path exists
-                        # path = navigator.getPathThroughPoses(initial_pose, goal_poses)
+                #         # sanity check a valid path exists
+                #         # path = navigator.getPathThroughPoses(initial_pose, goal_poses)
 
-                        self.navigator.goThroughPoses(box_poses)
+                #         self.navigator.goThroughPoses(box_poses)
 
-                        i = 0
-                        while not self.navigator.isTaskComplete():
+                #         i = 0
+                #         while not self.navigator.isTaskComplete():
                         
-                            i = i + 1
-                            feedback = self.navigator.getFeedback()
-                            if feedback and i % 5 == 0:
-                                print(
-                                    'Estimated time of arrival: '
-                                    + '{0:.0f}'.format(
-                                        Duration.from_msg(feedback.estimated_time_remaining).nanoseconds
-                                        / 1e9
-                                    )
-                                    + ' seconds.'
-                                )
+                #             i = i + 1
+                #             feedback = self.navigator.getFeedback()
+                #             if feedback and i % 5 == 0:
+                #                 print(
+                #                     'Estimated time of arrival: '
+                #                     + '{0:.0f}'.format(
+                #                         Duration.from_msg(feedback.estimated_time_remaining).nanoseconds
+                #                         / 1e9
+                #                     )
+                #                     + ' seconds.'
+                #                 )
 
-                                # Some navigation timeout to demo cancellation
-                                if Duration.from_msg(feedback.navigation_time) > Duration(seconds=600.0):
-                                    self.navigator.cancelTask()
+                #                 # Some navigation timeout to demo cancellation
+                #                 if Duration.from_msg(feedback.navigation_time) > Duration(seconds=600.0):
+                #                     self.navigator.cancelTask()
 
-                        # Do something depending on the return code
-                        result = self.navigator.getResult()
-                        if result == TaskResult.SUCCEEDED:
-                            print('Goal succeeded!')
-                            self.box_move =True
+                #         # Do something depending on the return code
+                #         result = self.navigator.getResult()
+                #         if result == TaskResult.SUCCEEDED:
+                #             print('Goal succeeded!')
+                #             self.box_move =True
 
-                        elif result == TaskResult.CANCELED:
-                            print('Goal was canceled!')
-                        elif result == TaskResult.FAILED:
-                            print('Goal failed!')
-                        else:
-                            print('Goal has an invalid return status!')
+                #         elif result == TaskResult.CANCELED:
+                #             print('Goal was canceled!')
+                #         elif result == TaskResult.FAILED:
+                #             print('Goal failed!')
+                #         else:
+                #             print('Goal has an invalid return status!')
                 
                             
                             
