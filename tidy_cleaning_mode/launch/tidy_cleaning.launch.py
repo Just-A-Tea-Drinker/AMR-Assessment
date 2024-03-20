@@ -45,20 +45,25 @@ def generate_launch_description():
             output='screen',
             parameters=[
             # Adjust parameters as needed
-            {'params_file': twist_file},  # Set to True if using simulated time
+            twist_file
             
             ],
-            #remappings=[('/cmd_vel_out', '/cmd_vel')]
+            remappings=[('/cmd_vel_out', '/cmd_vel')]
             # Add any necessary parameters here
         ),
-        ##seting up the robot nodes
+        #seting up the robot nodes
         Node(
             package=  'tidy_cleaning_mode',
             executable='Robot_start.py',
             
             output='screen', 
         ),
-        
+        Node(
+            package=  'tidy_cleaning_mode',
+            executable='Robot_pathplanning.py',
+            
+            output='screen', 
+        ),
 
 
     

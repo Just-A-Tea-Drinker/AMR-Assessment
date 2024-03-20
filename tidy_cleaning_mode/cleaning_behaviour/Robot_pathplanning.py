@@ -1,3 +1,4 @@
+#!/usr/bin/env python
 #ROS imports 
 import rclpy
 from rclpy.node import Node
@@ -191,7 +192,7 @@ class PathPlanning(Node):
 
     def PosCalc(self,cur,goal):
         #used to mathematically calculate a new cooridnate based on position
-        gran= 0.25
+        gran= 0.1
         children = []
         pushing = []
         angles =[-3.14,-1.57,0.0,1.57,3.14]
