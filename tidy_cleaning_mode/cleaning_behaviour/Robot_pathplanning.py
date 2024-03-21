@@ -73,12 +73,12 @@ class PathPlanning(Node):
         timer_period = 0.01  # seconds
         self.updater = self.create_timer(timer_period, self.Broadcast)
         
-        # self.target_box=[1.0, 1.0, 0.7573528289794922, 0.00789883267134428]
+        # self.target_box=[1.0, 1.0, 0.7973528289794922, -0.5]
         # self.target_wall = [1.4828461408615112, -0.0376550517976284]
         # print(type(self.target_box))
-        # while(True):
+      
 
-        #     self.PathPlan()
+        # self.PathPlan()
         
         
 
@@ -192,7 +192,7 @@ class PathPlanning(Node):
 
     def PosCalc(self,cur,goal):
         #used to mathematically calculate a new cooridnate based on position
-        gran= 0.1
+        gran= 0.15
         children = []
         pushing = []
         angles =[-3.14,-1.57,0.0,1.57,3.14]
@@ -210,17 +210,17 @@ class PathPlanning(Node):
             #checking near current lidar data
             valid = True
             
-            if [x,y] == goal or abs(goal[0] - x)<=0.3 or math.dist(goal,[x,y])<=0.3:
+            if [x,y] == goal or abs(goal[0] - x)<=0.25 or math.dist(goal,[x,y])<=0.25:
                 return goal
             
             for i in range(len(self.Xs)):
-                if abs(self.Xs[i] - x) + abs(self.Ys[i] - y)<=0.25:
+                if abs(self.Xs[i] - x) + abs(self.Ys[i] - y)<=0.2:
                     valid = False
                     break
                 else:
                     valid = True
 
-                if abs(self.Xs[i] - px) + abs(self.Ys[i] - py)<=0.25:
+                if abs(self.Xs[i] - px) + abs(self.Ys[i] - py)<=0.2:
                     valid = False
                     break
                 else:
@@ -229,12 +229,12 @@ class PathPlanning(Node):
             if valid ==True:
                 for green_box in self.green_boxes:
                     if(green_box !=self.target_box):
-                        if abs(green_box[2] - x) + abs(green_box[3] - y)<=0.25:
+                        if abs(green_box[2] - x) + abs(green_box[3] - y)<=0.2:
                             valid = False
                             break
                         else:
                             valid = True
-                        if abs(green_box[2] - px) + abs(green_box[3] - py)<=0.25:
+                        if abs(green_box[2] - px) + abs(green_box[3] - py)<=0.2:
                             valid = False
                             break
                         else:
@@ -243,12 +243,12 @@ class PathPlanning(Node):
             if valid ==True:
                 for red_box in self.red_boxes:
                     if(red_box !=self.target_box):
-                        if abs(red_box[2] - x) + abs(red_box[3] - y)<=0.25:
+                        if abs(red_box[2] - x) + abs(red_box[3] - y)<=0.2:
                             valid = False
                             break
                         else:
                             valid = True
-                        if abs(red_box[2] - px) + abs(red_box[3] - py)<=0.25:
+                        if abs(red_box[2] - px) + abs(red_box[3] - py)<=0.2:
                             valid = False
                             break
                         else:
@@ -266,10 +266,22 @@ class PathPlanning(Node):
             return cur
         for child in children:
             child_cost.append(abs(goal[0] - child[0]) + abs(goal[1] - child[1]))
-        
+        if cur == [self.target_box[2],self.target_box[3]]:
+            #adding the push bearing to get from the start to the first move
+            best = children[child_cost.index(min(child_cost))]
+            start2child = math.atan2(cur[1]-best[1],cur[0]-best[0])
+            px = cur[0]+(0.4*math.cos(start2child))
+            py = cur[1]+(0.4*math.sin(start2child))
+            self.bearing.append([px,py])
+            #self.path.append(cur)
         self.bearing.append(pushing[child_cost.index(min(child_cost))])
         return children[child_cost.index(min(child_cost))]
     
+    
+
+                    
+
+
 
 
     def PathPlan(self):
@@ -312,9 +324,12 @@ class PathPlanning(Node):
                     self.path.append(best_move)
                     child = best_move
                     self.failed = False
+
             
+
             if self.failed ==False:
                 msg_data = []
+                self.CompMoves2()
                 for bearing in self.bearing:
                     
                     for xy in bearing:
@@ -338,9 +353,121 @@ class PathPlanning(Node):
            
             #print(self.path_msg)
             #print(self.bearing_msg)
+        #print(self.path)
+        #print(self.bearing)
+        #self.CompMoves()
+       
+
+
+
+    def douglas_peucker(self,points, epsilon):
+        if len(points) <= 2:
+            return points
+        
+        # Find the point with the maximum distance
+        max_distance = 0
+        max_index = 0
+        start, end = points[0], points[-1]
+        
+        for i in range(1, len(points) - 1):
+            distance = self.perpendicular_distance(points[i], start, end)
+            if distance > max_distance:
+                max_distance = distance
+                max_index = i
+                
+        if max_distance > epsilon:
+            # Recursive call for subpaths
+            left_subpath = self.douglas_peucker(points[:max_index + 1], epsilon)
+            right_subpath = self.douglas_peucker(points[max_index:], epsilon)
+            return left_subpath[:-1] + right_subpath
+        else:
+            return [start, end]
+
+    def perpendicular_distance(self,point, start, end):
+        # Calculate perpendicular distance of 'point' from line connecting 'start' and 'end'
+        return abs((end[1] - start[1]) * point[0] - (end[0] - start[0]) * point[1] + end[0] * start[1] - end[1] * start[0]) / ((end[1] - start[1]) ** 2 + (end[0] - start[0]) ** 2) ** 0.5   
+    
+    def bearingCalc(self):
+        #taking the newly calculated path generated and calculating the push bearings for them
+        for i in range(len(self.path)):
+            if i+1<len(self.path):
+                bearing =  math.atan2(  self.path[i][1]-self.path[i+1][1]  ,self.path[i][0]-self.path[i+1][0] )
+                px = self.path[i][0]+(0.4*math.cos(bearing))
+                py = self.path[i][1]+(0.4*math.sin(bearing))
+                self.bearing.append([px,py])
             
+    def CompMoves2(self):
+        epsilon = 0.1
+
+        self.bearing = []
+        temp_path = []
+        simplified_path = self.douglas_peucker(self.path, epsilon)
+        self.path = simplified_path
+        for i in self.path:
+            if math.dist(i,self.target_box[2:])<0.2:
+                temp_path.append(self.target_box[2:])
+            else:
+                temp_path.append(i)
+        self.path = temp_path
+        self.bearingCalc()
+        temp_path = []
+        for i in self.path:
+            if i != [self.target_box[2],self.target_box[3]]:
+                temp_path.append(i)
+        self.path = temp_path
+        # print(self.path)
+        # print(self.bearing)
+        
+
+
+
+
+    def CompMoves(self):
+        #function dedicated for compounding like moves like equal headings
+        print("ORIGINAL")
+        print(self.path)
+        print(self.bearing)
+        comp_path = []
+        for i in range(len(self.path)):
             
-            
+            #calcualting if there are like vectors
+            comp_path.append(math.atan2( self.path[i][1]-self.bearing[i][1],   self.path[i][0]-self.bearing[i][0]))
+        print(comp_path)       
+        #now we have a compilled direction we can get the index of the bearings and path and delete the duplicate instructions
+        temp_bear = []
+        temp_path = []
+        
+        
+        bear = []
+        node =[]
+        
+        for j in range(len(comp_path)):
+            first_index = None
+            last_index = None
+
+            for i, value in enumerate(comp_path):
+               
+                if value == comp_path[j]:
+                    if first_index is None:
+                        first_index = i
+                    last_index = i
+            temp_bear.append(self.bearing[first_index])
+            temp_path.append(self.path[last_index])
+
+        
+        
+        ##trying to see if any of the bearings and te movements have any correlation
+
+       
+
+        self.path = []
+        [self.path.append(x) for x in temp_path if x not in self.path]
+        self.bearing = []
+        [self.bearing.append(x) for x in temp_bear if x not in self.bearing]
+        print("NEW")
+        print(self.path)
+        print(self.bearing)
+        #self.bearing = []
                
                     
                       

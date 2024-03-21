@@ -278,8 +278,69 @@ class Move(Node):
             
             return abs(self.waypoint[0] - self.X) + abs(self.waypoint[1] - self.Y)#math.dist(self.waypoint,self.path[self.pathIndex-1])
     def BoxPathCreate(self):
-        #used to to create the complete path taking into account displacement of the boxes to feed into nav2
-        box_path = []
+        box_path=[]
+        for i in range(len(self.path)):
+            #as we should be a the bearing point at the start then we start with the path point
+            if i+1<len(self.path):
+                #but path points are an aprox where the box should be so we need to calculate a relative displacement
+                heading = math.atan2(self.bearings[i][1]-self.path[i][1],self.bearings[i][0]-self.path[i][0])
+                px = self.path[i][0] + (0.17*math.cos(heading))
+                py = self.path[i][1]+(0.17*math.sin(heading))
+
+                changeY = self.bearings[i+1][1] - py
+                changeX = self.bearings[i+1][0] - px
+                yaw = math.atan2(changeY,changeX)
+                quaternion = self.eularToQuaternion(yaw)    
+                
+                goal_pose3 = PoseStamped()
+                goal_pose3.header.frame_id = 'map'
+                goal_pose3.header.stamp = self.navigator.get_clock().now().to_msg()
+                goal_pose3.pose.position.x = px
+                goal_pose3.pose.position.y = py
+                goal_pose3.pose.orientation.w = quaternion[3]
+                goal_pose3.pose.orientation.z = quaternion[2]
+                box_path.append(goal_pose3)
+
+                changeY =  self.path[i+1][1]- self.bearings[i+1][1]
+                changeX =  self.path[i+1][0]- self.bearings[i+1][0]
+                yaw = math.atan2(changeY,changeX)
+                quaternion = self.eularToQuaternion(yaw)
+                goal_pose1 = PoseStamped()
+                goal_pose1.header.frame_id = 'map'
+                goal_pose1.header.stamp = self.navigator.get_clock().now().to_msg()
+                goal_pose1.pose.position.x = self.bearings[i+1][0]
+                goal_pose1.pose.position.y = self.bearings[i+1][1]
+                goal_pose1.pose.orientation.w = quaternion[3]
+                goal_pose1.pose.orientation.z = quaternion[2]
+                box_path.append(goal_pose1)
+            else:
+                #but path points are an aprox where the box should be so we need to calculate a relative displacement
+                heading = math.atan2(self.bearings[-1][1]-self.path[-1][1],self.bearings[-1][0]-self.path[-1][0])
+                px = self.path[-1][0] + (0.25*math.cos(heading))
+                py = self.path[-1][1]+(0.25*math.sin(heading))
+                changeY =  py-self.bearings[-1][1]
+                changeX = px-self.bearings[-1][0]
+                yaw = math.atan2(changeY,changeX)
+                quaternion = self.eularToQuaternion(yaw)  
+                
+                goal_pose3 = PoseStamped()
+                goal_pose3.header.frame_id = 'map'
+                goal_pose3.header.stamp = self.navigator.get_clock().now().to_msg()
+                goal_pose3.pose.position.x = px
+                goal_pose3.pose.position.y = py
+                box_path.append(goal_pose3)
+
+           
+
+
+        goal_pose2 = PoseStamped()
+        goal_pose2.header.frame_id = 'map'
+        goal_pose2.header.stamp = self.navigator.get_clock().now().to_msg()
+        goal_pose2.pose.position.x = 0.0
+        goal_pose2.pose.position.y = 0.0
+        box_path.append(goal_pose2)
+
+        return(box_path)
         
 
     def StartCompCreate(self):
@@ -297,8 +358,8 @@ class Move(Node):
                 goal_pose1.header.stamp = self.navigator.get_clock().now().to_msg()
                 goal_pose1.pose.position.x = self.path2Start[i][0]
                 goal_pose1.pose.position.y = self.path2Start[i][1]
-                #goal_pose1.pose.orientation.w = quaternion[3]
-                #goal_pose1.pose.orientation.z = quaternion[2]
+                goal_pose1.pose.orientation.w = quaternion[3]
+                goal_pose1.pose.orientation.z = quaternion[2]
                 waypoints.append(goal_pose1)
             else:
                 changeY = self.path[0][1] - self.bearings[0][1]
@@ -444,97 +505,91 @@ class Move(Node):
                 
                     # sanity check a valid path exists
                     # path = navigator.getPathThroughPoses(initial_pose, goal_poses)
+                    for goal in goal_poses:
+                        self.navigator.goToPose(goal)
 
-                    self.navigator.goThroughPoses(goal_poses)
-
-                    i = 0
-                    while not self.navigator.isTaskComplete():
-                       
-                        i = i + 1
-                        feedback = self.navigator.getFeedback()
-                        if feedback and i % 5 == 0:
-                            print(
-                                'Estimated time of arrival: '
-                                + '{0:.0f}'.format(
-                                    Duration.from_msg(feedback.estimated_time_remaining).nanoseconds
-                                    / 1e9
+                        i = 0
+                        while not self.navigator.isTaskComplete():
+                                
+                            i = i + 1
+                            feedback = self.navigator.getFeedback()
+                            #print(goal_poses)
+                            if feedback and i % 5 == 0:
+                                print(
+                                    'Estimated time of arrival: '
+                                    + '{0:.0f}'.format(
+                                        Duration.from_msg(feedback.estimated_time_remaining).nanoseconds
+                                        / 1e9
+                                    )
+                                    + ' seconds.'
                                 )
-                                + ' seconds.'
-                            )
 
-                            # Some navigation timeout to demo cancellation
-                            if Duration.from_msg(feedback.navigation_time) > Duration(seconds=600.0):
-                                self.navigator.cancelTask()
+                                # Some navigation timeout to demo cancellation
+                                if Duration.from_msg(feedback.navigation_time) > Duration(seconds=600.0):
+                                    self.navigator.cancelTask()
 
-                    # Do something depending on the return code
-                    result = self.navigator.getResult()
-                    if result == TaskResult.SUCCEEDED:
-                        print('Goal succeeded!')
-                        self.to_start =True
+                        # Do something depending on the return code
+                        result = self.navigator.getResult()
+                        if result == TaskResult.SUCCEEDED:
+                            print('Goal succeeded!')
+                            self.to_start =True
 
-                    elif result == TaskResult.CANCELED:
-                        print('Goal was canceled!')
-                    elif result == TaskResult.FAILED:
-                        print('Goal failed!')
-                    else:
-                        print('Goal has an invalid return status!')
+                        elif result == TaskResult.CANCELED:
+                            print('Goal was canceled!')
+                        elif result == TaskResult.FAILED:
+                            print('Goal failed!')
+                        else:
+                            print('Goal has an invalid return status!')
                 else:
                      if self.box_move ==False:
                         print("Build the code you lazy sod")
-                #         quaternion =self.eularToQuaternion(math.radians(self.yaw))
-                #         initial_pose = PoseStamped()
-                #         initial_pose.header.frame_id = 'map'
-                #         initial_pose.header.stamp = self.navigator.get_clock().now().to_msg()
-                #         initial_pose.pose.position.x = self.X
-                #         initial_pose.pose.position.y = self.Y
-                #         initial_pose.pose.orientation.z = quaternion[2]
-                #         initial_pose.pose.orientation.w = quaternion[3]
-
-                #         self.navigator.setInitialPose(initial_pose)
                             
-                #         # Wait for navigation to fully activate, since autostarting nav2
-                #         self.navigator.waitUntilNav2Active()
+                        # Wait for navigation to fully activate, since autostarting nav2
+                        self.navigator.waitUntilNav2Active()
                         
-                #         #calcualting a comprehensive movement plan to push the boxes eg
-                #         box_poses = self.BoxPathCreate()
-
-                    
-                #         # sanity check a valid path exists
-                #         # path = navigator.getPathThroughPoses(initial_pose, goal_poses)
-
-                #         self.navigator.goThroughPoses(box_poses)
-
-                #         i = 0
-                #         while not self.navigator.isTaskComplete():
+                        #calcualting a comprehensive movement plan to push the boxes eg
+                        box_poses = self.BoxPathCreate()
                         
-                #             i = i + 1
-                #             feedback = self.navigator.getFeedback()
-                #             if feedback and i % 5 == 0:
-                #                 print(
-                #                     'Estimated time of arrival: '
-                #                     + '{0:.0f}'.format(
-                #                         Duration.from_msg(feedback.estimated_time_remaining).nanoseconds
-                #                         / 1e9
-                #                     )
-                #                     + ' seconds.'
-                #                 )
+                        for box in box_poses:
 
-                #                 # Some navigation timeout to demo cancellation
-                #                 if Duration.from_msg(feedback.navigation_time) > Duration(seconds=600.0):
-                #                     self.navigator.cancelTask()
 
-                #         # Do something depending on the return code
-                #         result = self.navigator.getResult()
-                #         if result == TaskResult.SUCCEEDED:
-                #             print('Goal succeeded!')
-                #             self.box_move =True
+                            # sanity check a valid path exists
+                            # path = navigator.getPathThroughPoses(initial_pose, goal_poses)
+                            print(box)
+                            self.navigator.goToPose(box)
 
-                #         elif result == TaskResult.CANCELED:
-                #             print('Goal was canceled!')
-                #         elif result == TaskResult.FAILED:
-                #             print('Goal failed!')
-                #         else:
-                #             print('Goal has an invalid return status!')
+                            i = 0
+                            while not self.navigator.isTaskComplete():
+                            
+                                i = i + 1
+                                
+                                feedback = self.navigator.getFeedback()
+                                if feedback and i % 5 == 0:
+                                    print(
+                                        'Estimated time of arrival: '
+                                        + '{0:.0f}'.format(
+                                            Duration.from_msg(feedback.estimated_time_remaining).nanoseconds
+                                            / 1e9
+                                        )
+                                        + ' seconds.'
+                                    )
+
+                                    # Some navigation timeout to demo cancellation
+                                    if Duration.from_msg(feedback.navigation_time) > Duration(seconds=600.0):
+                                        self.navigator.cancelTask()
+
+                            # Do something depending on the return code
+                            result = self.navigator.getResult()
+                            if result == TaskResult.SUCCEEDED:
+                                print('Goal succeeded!')
+                                self.box_move =True
+
+                            elif result == TaskResult.CANCELED:
+                                print('Goal was canceled!')
+                            elif result == TaskResult.FAILED:
+                                print('Goal failed!')
+                            else:
+                                print('Goal has an invalid return status!')
                 
                             
                             
