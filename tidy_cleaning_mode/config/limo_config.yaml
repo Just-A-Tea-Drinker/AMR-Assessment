@@ -1,6 +1,6 @@
 amcl:
   ros__parameters:
-    use_sim_time: False
+    use_sim_time: True
     alpha1: 0.02
     alpha2: 0.02
     alpha3: 0.02
@@ -71,7 +71,7 @@ planner_server:
 
 bt_navigator:
   ros__parameters:
-    use_sim_time: true
+    use_sim_time: True
     global_frame: map
     robot_base_frame: base_link
     transform_tolerance: 0.1
@@ -141,11 +141,11 @@ controller_server:
     controller_plugins: ["FollowPath"]
     progress_checker:
       plugin: "nav2_controller::SimpleProgressChecker"
-      required_movement_radius: 0.1
-      movement_time_allowance: 30.0
+      required_movement_radius: 0.0
+      movement_time_allowance: 45.0
     goal_checker:
       plugin: "nav2_controller::SimpleGoalChecker"
-      xy_goal_tolerance: 0.1
+      xy_goal_tolerance: 0.15
       yaw_goal_tolerance: 0.1
       stateful: True
     # DWB controller parameters
@@ -230,7 +230,7 @@ global_costmap:
       inflation_layer:
         plugin: "nav2_costmap_2d::InflationLayer"
         enabled: true
-        inflation_radius: 0.15
+        inflation_radius: 0.17
         cost_scaling_factor: 1.0
         inflate_unknown: false
         inflate_around_unknown: true
@@ -272,7 +272,7 @@ local_costmap:
       inflation_layer:
         plugin: "nav2_costmap_2d::InflationLayer"
         enabled: true
-        inflation_radius: 0.25
+        inflation_radius: 0.17
         cost_scaling_factor: 1.0
         inflate_unknown: false
         inflate_around_unknown: true

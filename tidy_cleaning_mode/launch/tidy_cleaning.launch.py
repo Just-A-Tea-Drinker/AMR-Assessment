@@ -58,12 +58,12 @@ def generate_launch_description():
             
             output='screen', 
         ),
-        Node(
-            package=  'tidy_cleaning_mode',
-            executable='Robot_pathplanning.py',
+        # Node(
+        #     package=  'tidy_cleaning_mode',
+        #     executable='Robot_pathplanning.py',
             
-            output='screen', 
-        ),
+        #     output='screen', 
+        # ),
 
 
     

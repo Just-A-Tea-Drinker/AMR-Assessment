@@ -52,8 +52,17 @@ class BoxSort(Node):
         self.WallinfoPub = self.create_publisher(Float32MultiArray, "/WallProcessed",60)
         self.wall_msg = Float32MultiArray()
         #creating a time based callback
-        # timer_period = 0.01  # seconds
-        # self.timer = self.create_timer(timer_period, self.timer_callback)
+        timer_period = 0.01  # seconds
+        self.updater = self.create_timer(timer_period, self.Broadcast)
+
+    def Broadcast(self):
+        msg_data = []
+        for boxes in self.boxes:
+            for info in boxes:
+                msg_data.append(float(info))
+        self.box_msg.data = msg_data
+        self.BoxinfoPub.publish(self.box_msg)
+
     def wallCallback(self,walldata):
         for a in range(0,len(walldata.data), 3):
              #print(i," ",origin.data[i]," ",origin.data[i+1]," ", origin.data[i+2])

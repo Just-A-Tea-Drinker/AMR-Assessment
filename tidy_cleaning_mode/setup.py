@@ -17,6 +17,8 @@ setup(
              '/workspaces/AMR-Assessment/tidy_cleaning_mode/cleaning_behaviour/BoxSort.py',
              '/workspaces/AMR-Assessment/tidy_cleaning_mode/cleaning_behaviour/Robot_pathplanning.py',
              '/workspaces/AMR-Assessment/tidy_cleaning_mode/cleaning_behaviour/Robot_move.py',
+             '/workspaces/AMR-Assessment/tidy_cleaning_mode/cleaning_behaviour/local_pathfinding.py',
+             '/workspaces/AMR-Assessment/tidy_cleaning_mode/cleaning_behaviour/global_pathplanning.py',
              #'/workspaces/AMR-Assessment/tidy_cleaning_mode/cleaning_behaviour/.py',
                 ],  # Specify executable scripts here
     data_files=[('share/ament_index/resource_index/packages',
