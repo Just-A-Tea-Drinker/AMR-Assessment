@@ -42,6 +42,7 @@ class Move(Node):
     response = [0]
 
     count = 0
+    count2 =0
     count1 = 0#
 
     X = 0.0
@@ -72,7 +73,7 @@ class Move(Node):
     path2index = 0
     pathIndex = 0
     
-    count = 0
+    
     path_count = 0
     
     to_start = False
@@ -83,6 +84,15 @@ class Move(Node):
     prev_2path = []
     prev_path = []
     path_coll = []
+    globalpp=None
+    inv_Box = []
+
+    retry_box = False
+    count3 = 0
+    count4= 0
+    BothList =[]
+    Reset = False
+    release = False
     #constructor
     def __init__(self):
         super().__init__('Robot_move')
@@ -105,8 +115,7 @@ class Move(Node):
 
         ##subscriber to read the custom scan data
         self.range_get = self.create_subscription(Float32MultiArray,'/Range_Pub',self.ScanCallback,1)
-        ##subscriber to read the custom scan data
-        self.range_get = self.create_subscription(LaserScan,"/scan",self.RawScancallback, 1)
+       
         #subscriber for the custom odometry
         self.pos_get = self.create_subscription(Float32MultiArray,'/Compressed_Odom',self.OdomCallback,1)
         #subscribing to the box topic to obtain the boxes
@@ -114,52 +123,17 @@ class Move(Node):
 
         timer_period = 0.01  # seconds
         self.updater = self.create_timer(timer_period, self.Broadcast)
-        #calling the custom global planner
-        self.globalpp =gp.PathPlanning()
         #navigator for nav2
         self.navigator = BasicNavigator()
 
-    def RawScancallback(self,data):
-        ##obtaining the scan data
-       
-        #doing some basic filtering for the lidar data
-        actual_ranges = []
-        for range in data.ranges:
-            if range != 0.0:
-                actual_ranges.append(range)
-        if len(actual_ranges)%2 !=0:
-            actual_ranges =actual_ranges[1:]
-        self.RawRanges = actual_ranges
-        self.Xs = []
-        self.Ys = []
-        for i, length in enumerate(self.RawRanges):
-            angle = data.angle_min + i * data.angle_increment
-            
-            ##plotting the obstacles
-            x = self.X+ ((length+0.15) * math.cos(angle + math.radians(self.yaw)))
-            y = self.Y+ ((length+0.15) * math.sin(angle + math.radians(self.yaw)))
-
-            self.Xs.append(x)
-            self.Ys.append(y)
-        self.globalpp.Xs = self.Xs
-        self.globalpp.Ys = self.Ys
-
+    
     def Broadcast(self):
         if self.turn ==False:
 
             ##returning confirmation that the action has been completed
-            #self.response[0] = 1.0
             self.brain_response.data = self.response
             self.responder.publish(self.brain_response)
-        if self.state ==1.0 and self.selecBox[0] != None:
-            if self.box_move ==True:
-                #self.box2send.data = [self.selecBox[0][0]]
-                #self.box_id.publish(self.box2send)
-                self.selecBox[0] = None
-                self.box_move = False
-                self.path_made = False
-                self.to_start =False
-
+       
     def BoxCallback(self,boxes):
         self.green_boxes = []
         self.red_boxes = []
@@ -170,7 +144,7 @@ class Move(Node):
             if split_box[1] == 1.0:
                 self.green_boxes.append(split_box)
             else:
-                #they must be red so
+                #they must be red
                 self.red_boxes.append(split_box)
             split_box = []
     def OdomCallback(self,odom):
@@ -190,7 +164,7 @@ class Move(Node):
             self.boxScan()
         elif self.state ==1.0:
             #activate the movement,heading and box pushing protocols
-            self.turn = True
+            
             self.BoxMove()
     def StartCompCreate(self):
         #used to feed to nav2 to get to the start collision free hopefully
@@ -207,21 +181,23 @@ class Move(Node):
                     goal_pose1 = PoseStamped()
                     goal_pose1.header.frame_id = 'map'
                     goal_pose1.header.stamp = self.navigator.get_clock().now().to_msg()##############
-                    goal_pose1.pose.position.x = self.path2Start[i][0]
-                    goal_pose1.pose.position.y = self.path2Start[i][1]
+                    goal_pose1.pose.position.x = self.path2Start[i][0]+0.0
+                    goal_pose1.pose.position.y = self.path2Start[i][1]+0.0
                     goal_pose1.pose.orientation.w = quaternion[3]
                     goal_pose1.pose.orientation.z = quaternion[2]
                     waypoints.append(goal_pose1)
                 else:
-                    changeY = self.path[0][1] - self.bearings[0][1]
-                    changeX = self.path[0][0] - self.bearings[0][0]
+                    print(self.path)
+                    print(self.bearings)
+                    changeY = self.path[1][1] - self.path[0][1]
+                    changeX = self.path[1][0] - self.path[0][0]
                     yaw = math.atan2(changeY,changeX)
                     quaternion = self.eularToQuaternion(yaw)
                     goal_pose1 = PoseStamped()
                     goal_pose1.header.frame_id = 'map'
                     goal_pose1.header.stamp = self.navigator.get_clock().now().to_msg()##############
-                    goal_pose1.pose.position.x = self.bearings[0][0]
-                    goal_pose1.pose.position.y = self.bearings[0][1]
+                    goal_pose1.pose.position.x = self.path[0][0]
+                    goal_pose1.pose.position.y = self.path[0][1]
                     goal_pose1.pose.orientation.w = quaternion[3]
                     goal_pose1.pose.orientation.z = quaternion[2]
                     waypoints.append(goal_pose1)
@@ -229,16 +205,16 @@ class Move(Node):
     
     def BoxPathCreate(self):
         box_path=[]
-        for i in range(len(self.path)):
+        for i in range(0,len(self.path)):
             #as we should be a the bearing point at the start then we start with the path point
-            if i+1<len(self.path) and i+1<len(self.bearings):
+            if i+1<len(self.path):
                 #but path points are an aprox where the box should be so we need to calculate a relative displacement
-                heading = math.atan2(self.bearings[i][1]-self.path[i][1],self.bearings[i][0]-self.path[i][0])
+                heading = math.atan2(self.path[i+1][1]-self.path[i][1],self.path[i+1][0]-self.path[i][0])
                 px = self.path[i][0] + (0.17*math.cos(heading))
                 py = self.path[i][1]+(0.17*math.sin(heading))
 
-                changeY = self.bearings[i+1][1] - py
-                changeX = self.bearings[i+1][0] - px
+                changeY = self.path[i+1][1] - py
+                changeX = self.path[i+1][0] - px
                 yaw = math.atan2(changeY,changeX)
                 quaternion = self.eularToQuaternion(yaw)    
                 
@@ -251,23 +227,11 @@ class Move(Node):
                 goal_pose3.pose.orientation.z = quaternion[2]
                 box_path.append(goal_pose3)
 
-                changeY =  self.path[i+1][1]- self.bearings[i+1][1]
-                changeX =  self.path[i+1][0]- self.bearings[i+1][0]
-                yaw = math.atan2(changeY,changeX)
-                quaternion = self.eularToQuaternion(yaw)
-                goal_pose1 = PoseStamped()
-                goal_pose1.header.frame_id = 'map'
-                goal_pose1.header.stamp = self.navigator.get_clock().now().to_msg()######################
-                goal_pose1.pose.position.x = self.bearings[i+1][0]
-                goal_pose1.pose.position.y = self.bearings[i+1][1]
-                goal_pose1.pose.orientation.w = quaternion[3]
-                goal_pose1.pose.orientation.z = quaternion[2]
-                box_path.append(goal_pose1)
             else:
                 #but path points are an aprox where the box should be so we need to calculate a relative displacement
                 heading = math.atan2(self.bearings[-1][1]-self.path[-1][1],self.bearings[-1][0]-self.path[-1][0])
-                px = self.path[-1][0] + (0.10*math.cos(heading))
-                py = self.path[-1][1]+(0.10*math.sin(heading))
+                px = self.path[-1][0] + (0.025*math.cos(heading))
+                py = self.path[-1][1]+(0.025*math.sin(heading))
                 changeY =  py-self.bearings[-1][1]
                 changeX = px-self.bearings[-1][0]
                 yaw = math.atan2(changeY,changeX)
@@ -280,16 +244,6 @@ class Move(Node):
                 goal_pose3.pose.position.y = py
                 box_path.append(goal_pose3)
 
-           
-
-
-        # goal_pose2 = PoseStamped()
-        # goal_pose2.header.frame_id = 'map'
-        # goal_pose2.header.stamp = self.navigator.get_clock().now().to_msg()
-        # goal_pose2.pose.position.x = 0.0
-        # goal_pose2.pose.position.y = 0.0
-        # box_path.append(goal_pose2)
-
         return(box_path)  
     def eularToQuaternion(self,yaw):
         roll = 0.0
@@ -299,152 +253,156 @@ class Move(Node):
         qz = np.cos(roll/2) * np.cos(pitch/2) * np.sin(yaw/2) - np.sin(roll/2) * np.sin(pitch/2) * np.cos(yaw/2)
         qw = np.cos(roll/2) * np.cos(pitch/2) * np.cos(yaw/2) + np.sin(roll/2) * np.sin(pitch/2) * np.sin(yaw/2)
  
-  
         return qx, qy, qz, qw
 
+    def BoxVia(self):
+        #testing the viability of the boxes found and making it known
+        valid_boxes = []
+        invalid_boxes = []
+        new_green = []
+        new_red = []
+           
+        for gboxes in self.green_boxes:
+            if gboxes not in self.box_coll:
+                new_green.append(gboxes)
+
+        for rboxes in self.red_boxes:
+            if rboxes not in self.box_coll:
+                new_red.append(rboxes)
+
+        self.globalpp =gp.PathPlanning(new_green,new_red)
+        for gboxes in new_green:
+            global_test = self.globalpp.PathMakingBackup(self.X,self.Y,gboxes)
+            if global_test == True:
+                local_test = self.globalpp.Nav2Start(self.X,self.Y,new_green,new_red)
+                if local_test ==True:
+                    valid_boxes.append(gboxes)
+                else:
+                    invalid_boxes.append(gboxes)
+            else:
+                invalid_boxes.append(gboxes)
+        
+        for rboxes in new_red:
+            global_test = self.globalpp.PathMakingBackup(self.X,self.Y,rboxes)
+            if global_test == True:
+                local_test = self.globalpp.Nav2Start(self.X,self.Y,new_green,new_red)
+                if local_test ==True:
+                    valid_boxes.append(rboxes)
+                else:
+                    invalid_boxes.append(rboxes)
+
+            else:
+                invalid_boxes.append(rboxes)
+
+        return valid_boxes
+
+        pass
     def BoxMove(self):
         #method used to control and move the boxes in a category
-        #checking which box type has more of them
-        # if len(self.box_coll) == (len(self.green_boxes)+len(self.red_boxes)):
-        #     del self.box_coll[-1]
-        #     del self.path_coll[len(self.path_coll-2):]
-
-        for box in self.box_coll:
-            for gbox in self.green_boxes:
-
-                if box[0] == gbox[0]:
-                    box_index = self.green_boxes.index(box)
-                    del self.green_boxes[box_index]
-            for rbox in self.red_boxes:
-
-                if box[0] == rbox[0]:
-                    box_index = self.red_boxes.index(box)
-                    del self.red_boxes[box_index]
-                    
-        
-        #checking whether or not a box has been chosen
-        #print(len(self.red_boxes)," ",len(self.green_boxes)," ",self.boxIndex)
-        if self.selecBox[0] == None:
-            #print(len(self.green_boxes)," ",len(self.red_boxes))
-            if len(self.green_boxes)>len(self.red_boxes):
-                self.isgreen =True
-            else:
-                self.isgreen = False
-            
-            #now we will select the box in the order they were found
-            if self.isgreen == True:
-                if len(self.green_boxes)>self.boxIndex:
-                    self.selecMove = True
-                    self.selecBox[0] = self.green_boxes[self.boxIndex]
-                
-            else:
-                if len(self.red_boxes)>self.boxIndex:
-                    self.selecMove = True
-                    self.selecBox[0] = self.red_boxes[self.boxIndex]
-            if self.count1 != 0:
-                #this is were we will update the path finding
-                pass
-            else:
-                #this must be the first time the code was ran and thus a bo must be selected
-                self.count1+=1
-            
+        if(len(self.green_boxes) !=0 or len(self.red_boxes) !=0)and self.release == True:
+            self.count2 = 0
+            self.selecBox[0] = None
+            self.release = False
+            self.Reset = False
             
         else:
-           
-            #setting up the pathfinding with the current target and wall
-            self.globalpp.X = self.X
-            self.globalpp.Y=self.Y
-            self.globalpp.yaw = self.yaw
-            self.globalpp.ranges = self.RawRanges
-            self.globalpp.green_wall = self.green_wall
-            self.globalpp.red_wall = self.red_wall
+            if len(self.green_boxes) ==0 and len(self.red_boxes) ==0 and self.release == True:
+                print("The boxes that are moveable have been moved")
+                return
+        print("The release ", self.release)
+        print("The reset", self.Reset)
+        
+        
+        
+        print(self.selecBox[0])
+        if self.release ==False:
+            viable_box = self.BoxVia()
 
-            if self.selecBox[0][1] == 1.0:
-                self.globalpp.target_wall = self.green_wall
-                
-            else:
-                self.globalpp.target_wall = self.red_wall
-            self.globalpp.target_box = self.selecBox[0]
-            #calling the pathfinding to contruct a path
-            self.globalpp.PathPlan()
-            self.bearings = self.globalpp.bearing
-            self.path = self.globalpp.path
+            if self.selecBox[0] ==None:
+                #testing whether or not the boxes in are the the viable box category
+                new_green = []
+                new_red = []
             
+                for gboxes in self.green_boxes:
+                    if gboxes in viable_box:
+                        if gboxes not in self.box_coll:
+                            new_green.append(gboxes)
 
+                for rboxes in self.red_boxes:
+                    if rboxes in viable_box:
+                        if rboxes not in self.box_coll:
+                            new_red.append(rboxes)
+                
+                if len(new_green)>len(new_red) and len(new_green)>0:
+                    
+                    self.selecBox[0] = new_green[0]
+                else:
+                    if len(new_red)>0:
+                        self.selecBox[0] = new_red[0]
+                
+                if len(new_green) ==0 and len(new_red) ==0:
+                    self.selecBox[0] = [0.0,0.0,0.0,0.0]
+                    self.box_move = False
+                    self.Reset = True;  
+            
+                print(self.selecBox[0])
+                    
+                
+            
+            else:
+                
+                #setting up the pathfinding with the current target and wall
+                
+               
+                #calling the pathfinding to contruct a path
+                #calling the custom global planner
+                if self.count2==0:
+                    self.globalpp =gp.PathPlanning(self.green_boxes,self.red_boxes)
+                    self.count2+=1
 
+                if self.Reset == False:
+                    
+                    global_path = self.globalpp.PathMakingBackup(self.X,self.Y,self.selecBox[0])
+                    self.path = self.globalpp.Pix2Cart(self.globalpp.path)
+                    self.bearings = self.globalpp.Pix2Cart(self.globalpp.push)
+                else:
+                    global_path = True
+                    self.path = [[0.0,0.0],[0.0,0.0]]
+                    
+                   
 
-
-            if self.failed ==False and self.path_made == False:
-                if self.path[0] != -1.0 :
+                if global_path == True:
+            
                     #the path and bearing have been made properly
                     #locally path planning to the start if im not near it
-                    print("Path created, planning to get to start position")
-
                     #creating the pathfinding object to intialise
-                    self.localP = lp.LocalPathFinding(self.green_boxes,self.red_boxes,self.bearings,self.selecBox[0],self.ranges,self.X,self.Y,self.yaw)
-                    
-                    child = [self.X,self.Y]
-                   
-                    goal =self.bearings[0]
-                    self.path2Start = []
-                    #print(goal)
-                    #print(type(goal)," ",type(self.selecBox[0]))
-                    self.count = 0
-                    if goal!=None:
-                        while(child!=goal):
-                            #looping through the positions until we meet the goal if possible
 
-                            #getting the positions to move to
-                            best_move= self.localP.LocalPathPlanning(child,goal,0.15)
-                            
-                            if best_move == child:
-                                print("cannot reach the start")
-                            
-                                #signifying failure to the move node to get a new box
-                                self.path_made = False
-                                self.failed = True
-                                
-                                break
-                            else:
-                            
-                                ##adding the child to the path to move on
-                                self.path2Start.append(best_move)
-                                child = best_move
-                                self.path_made = True
-                                self.failed = False
-                        if self.failed == False:
-                            self.path2Start = self.localP.EstiProjec(self.path2Start)
+                    if self.Reset == True:
+                        x =  int(((0.0 - -1.5)/3) * 600)
+                        y = 600-int(((0.0  - - 1.5)/3) * 600)
+                        self.globalpp.push = [[0]]
+                        self.globalpp.push[0] = [x,y]
+                        print(self.globalpp.push)
+                    local_path = self.globalpp.Nav2Start(self.X,self.Y,self.green_boxes,self.red_boxes)
+                    self.path2Start = self.globalpp.Pix2Cart(self.globalpp.start)
+                    
+                
 
                 else:
                     
-                    if self.path[0] == -1.0 and self.path[1] == self.selecBox[0][0]:
-                        print("global pathplanning failed ",self.path[1]," ",self.selecBox[0][0])
-                        if self.isgreen == True:
-                            if self.boxIndex<len(self.green_boxes)-1:
-                                self.boxIndex+=1
-                                self.selecBox[0] = self.green_boxes[self.boxIndex]
-                            else:
-                                if len(self.red_boxes)>0:
-                                    self.boxIndex = 0
-                                    self.isgreen=False
-                                    self.selecBox[0] = self.red_boxes[self.boxIndex]
-                        else:
-                            if self.boxIndex<len(self.red_boxes)-1:
-                                self.boxIndex+=1
-                                self.selecBox[0] = self.red_boxes[self.boxIndex]
-                            else:
-                                if len(self.green_boxes)>0:
-                                    self.boxIndex = 0
-                                    self.isgreen = True
-                                    self.selecBox[0] = self.green_boxes[self.boxIndex]
 
-            
-            #print(self.path_made)
-                                    
-            if self.path_made ==True and self.selecBox[0] !=self.prev_box:
+                    if self.selecBox[0] not in self.inv_Box:
+                        self.inv_Box.append(self.selecBox[0])
+                    self.selecBox[0] = None
+                    local_path = False
+                    
                 
-                #getting and setting the initial pose
-                if self.to_start ==False:
+                #print(self.path_made)
+                                        
+                if local_path ==True and self.selecBox[0] !=self.prev_box:
+                   
+                    #getting and setting the initial pose
+                    
                     if self.count1 <=1:
                         quaternion =self.eularToQuaternion(math.radians(self.yaw))
                         initial_pose = PoseStamped()
@@ -457,14 +415,14 @@ class Move(Node):
 
                         self.navigator.setInitialPose(initial_pose)
                         self.count1+=1
-                        
+                            
                     # Wait for navigation to fully activate, since autostarting nav2
                     self.navigator.waitUntilNav2Active()
-                    
+                        
                     #calcualting a comprehensive movement plan to push the boxes eg
                     goal_poses = self.StartCompCreate()
 
-                
+                    
                     # sanity check a valid path exists
                     # path = navigator.getPathThroughPoses(initial_pose, goal_poses)
                     if len(goal_poses)>=1 and goal_poses != self.prev_2path and goal_poses not in self.path_coll:
@@ -476,141 +434,133 @@ class Move(Node):
                                 i += 1
                                 feedback = self.navigator.getFeedback()
                                 if feedback and i % 5 == 0:
-                                    
+                                        
 
                                     # Some failure mode, must stop since the robot is clearly stuck
-                                    if Duration.from_msg(feedback.navigation_time) > Duration(seconds=180.0):
-                                        print('Navigation has exceeded timeout of 180s, canceling request.')
+                                    if Duration.from_msg(feedback.navigation_time) > Duration(seconds=60.0):
                                         self.navigator.cancelTask()
-                            # # Some navigation timeout to demo cancellation
-                            # if Duration.from_msg(feedback.navigation_time) > Duration(seconds=600.0):
-                            #     self.navigator.cancelTask()
 
-                            # Do something depending on the return code
-                            result = self.navigator.getResult()
-                            if result == TaskResult.SUCCEEDED:
-                                print('Goal succeeded!')
-                                self.to_start =True
-                                self.prev_2path = goal_poses
-                                self.path_coll.append(goal_poses)
-                                #self.navigator.cancelTask()
-
-                            elif result == TaskResult.CANCELED:
-                                print('Goal was canceled!')
-                            elif result == TaskResult.FAILED:
-                                print('Goal failed!')
-                            else:
-                                print('Goal has an invalid return status!')
-                else:
-                    if self.box_move ==False and len(self.bearings)>0 and self.selecBox[0]!=self.prev_box:
-                        print("Build the code you lazy sod")
+                        # Do something depending on the return code
+                        result = self.navigator.getResult()
+                        if result == TaskResult.SUCCEEDED:
+                            print('Starting location met')
+                            self.to_start =True
+                            self.prev_2path = goal_poses
                             
-                        # Wait for navigation to fully activate, since autostarting nav2
-                        self.navigator.waitUntilNav2Active()
-                        
-                        #calcualting a comprehensive movement plan to push the boxes eg
-                        box_poses = self.BoxPathCreate()
-                       
-
-
-                        # sanity check a valid path exists
-                        # path = navigator.getPathThroughPoses(initial_pose, goal_poses)
-                        if self.prev_path != box_poses and box_poses not in self.path_coll:   
-                            self.navigator.goThroughPoses(box_poses)
-                            i=0
-                            while not self.navigator.isTaskComplete():
-                                i += 1
-                                feedback = self.navigator.getFeedback()
-                                if feedback and i % 5 == 0:
-                                    
-
-                                    # Some failure mode, must stop since the robot is clearly stuck
-                                    if Duration.from_msg(feedback.navigation_time) > Duration(seconds=180.0):
-                                        print('Navigation has exceeded timeout of 180s, canceling request.')
-                                        self.navigator.cancelTask()
-                            # # Some navigation timeout to demo cancellation
-                            # if Duration.from_msg(feedback.navigation_time) > Duration(seconds=600.0):
-                            #     self.navigator.cancelTask()
-
-                            # Do something depending on the return code
-                            result = self.navigator.getResult()
-                            if result == TaskResult.SUCCEEDED:
-                                print('Goal succeeded!')
-                                self.prev_box = self.selecBox[0]
-                                self.box_move =True
-                                self.prev_path= box_poses
-                                self.box_coll.append(self.selecBox[0])
-                                self.path_coll.append(box_poses)    
-                                #self.navigator.cancelTask()    
-                                    
-
-                            elif result == TaskResult.CANCELED:
-                                print('Goal was canceled!')
-                            elif result == TaskResult.FAILED:
-                                print('Goal failed!')
-                            else:
-                                print('Goal has an invalid return status!')
-                        
-                                print("Box moved to the wall!")
-                            # if self.box_move ==True:
-                            #     self.box2send.data = [self.selecBox[0][0]]
-                            #     self.box_id.publish(self.box2send)
-                            #     self.selecBox[0] = None
-                            #     self.box_move = False
+                            if self.Reset == True:
+                                print("Resetting")
+                                #publish memory reset and behaviour response
+                               
+                                self.box2send.data = [-1.0]
+                                self.box_id.publish(self.box2send)
                                 
-                            # # self.box2send.data = [self.selecBox[0][0]]
-                            # # self.box_id.publish(self.box2send)
-                            # # self.selecBox[0] = None
-            
-                        
-                        
+                                self.selecBox[0] = None
+                                
+                                self.path_made = False
+                                self.to_start =False
+                                self.count = 0
 
-                            
-                            
-                    
-                        
-                
-               
-            else:
-                
-                if self.path[0] == -1.0 and self.path[1] == self.selecBox[0][0]:
-                    #they havent been generated time to move the index and change the box
-                    print("Local pathplanning failed ",self.path[1]," ",self.selecBox[0][0])
-                    if self.path[0] == -1.0 and self.path[1] == self.selecBox[0][0]:
-                        if self.isgreen == True:
-                            if self.boxIndex<len(self.green_boxes)-1:
-                                self.boxIndex+=1
-                                self.selecBox[0] = self.green_boxes[self.boxIndex]
-                            else:
-                                if len(self.red_boxes)>0:
-                                    self.boxIndex = 0
-                                    self.isgreen=False
-                                    self.selecBox[0] = self.red_boxes[self.boxIndex]
+                                self.release =True
+                                self.box_coll = []
+                                self.path_coll = []
+                                
+                                #self.Reset = False
+                            if self.box_move ==False and self.selecBox[0]!=self.prev_box and self.Reset ==False:
+                                self.path_coll.append(goal_poses)
+                                print("Moving box")
+                                            
+                                # Wait for navigation to fully activate, since autostarting nav2
+                                self.navigator.waitUntilNav2Active()
+                                        
+                                #calcualting a comprehensive movement plan to push the boxes eg
+                                box_poses = self.BoxPathCreate()
+                                    
+
+
+                                # sanity check a valid path exists
+                                # path = navigator.getPathThroughPoses(initial_pose, goal_poses)
+                                if self.prev_path != box_poses and box_poses not in self.path_coll:
+                                    for box in box_poses:  
+                                        self.navigator.goToPose(box)
+                                        i=0
+                                        while not self.navigator.isTaskComplete():
+                                            i += 1
+                                            feedback = self.navigator.getFeedback()
+                                            if feedback and i % 5 == 0:
+                                                        
+
+                                                # Some failure mode, must stop since the robot is clearly stuck
+                                                if Duration.from_msg(feedback.navigation_time) > Duration(seconds=120.0):
+                                                    print('Navigation has exceeded timeout of 120s, canceling request.')
+                                                    self.navigator.cancelTask()
+
+                                                # Do something depending on the return code
+                                        result = self.navigator.getResult()
+                                        if result == TaskResult.SUCCEEDED:
+                                            
+                                                
+                                            if box ==box_poses[-1] and self.Reset == False:
+                                                print('Box moved!')
+
+                                                # self.box2send.data = [self.selecBox[0][0]]
+                                                # self.box_id.publish(self.box2send)
+
+                                                self.prev_box = self.selecBox[0]
+                                                self.prev_path= box_poses
+
+                                                self.box_coll.append(self.selecBox[0])
+                                                self.path_coll.append(box_poses)  
+
+                                                self.selecBox[0] = None
+                                                
+                                                self.path_made = False
+                                                self.to_start =False    
+                                                        
+
+                                        elif result == TaskResult.CANCELED:
+                                            print('Goal was canceled!')
+                                        elif result == TaskResult.FAILED:
+                                            print('Goal failed!')
+                                        else:
+                                            print('Goal has an invalid return status!')
+                                            
+                                            print("Box moved to the wall!")
+                                            
+
+                        elif result == TaskResult.CANCELED:
+                            print('Goal was canceled!')
+                        elif result == TaskResult.FAILED:
+                            print('Goal failed!')
                         else:
-                            if self.boxIndex<len(self.red_boxes)-1:
-                                self.boxIndex+=1
-                                self.selecBox[0] = self.red_boxes[self.boxIndex]
-                            else:
-                                if len(self.green_boxes)>0:
-                                    self.boxIndex = 0
-                                    self.isgreen = True
-                                    self.selecBox[0] = self.green_boxes[self.boxIndex]
+                            print('Goal has an invalid return status!')
+                    
                 else:
-                    print("BOX HASNT BEEN SWITCHED")
-                    if self.selecBox[0] ==self.prev_box and self.cur_box == self.goal_pos:
-                        self.box_move =True
-                  
+                    
+                    if self.selecBox[0]!= None and self.selecBox[0] not in self.inv_Box:
+                        self.inv_Box.append(self.selecBox[0])
+                    self.selecBox[0]=None
 
+            if self.release == True:
+                self.turn=True
+                self.response[0]=2.0
+               
+                self.brain_response.data = self.response
+                self.responder.publish(self.brain_response)
+                self.count = 0
 
+        if self.release == True:
+            self.turn=True
+            self.response[0]=2.0
+            
+            self.count = 0
+            self.count1 =0
 
-   
     #updates what values that should be published 
     def SetMove(self):
         #updates the message to be published
         self.move_cmd.linear.x = self.lin_vel 
         self.move_cmd.angular.z = self.ang_vel
         self.cmd_vel_pub.publish(self.move_cmd)
-
 
     def boxScan(self):
         #method first called to find any boxes
@@ -652,11 +602,8 @@ class Move(Node):
                     self.brain_response.data = self.response
                     self.responder.publish(self.brain_response)
                     
+                    
         if self.turn == True:
             self.ang_vel = 0.3
             self.lin_vel = 0.0
         self.SetMove()
-
-   
-
-            

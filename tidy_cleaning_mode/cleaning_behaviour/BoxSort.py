@@ -8,6 +8,7 @@ import cv2
 
 import numpy as np
 import math
+import copy
 
 
 
@@ -25,10 +26,15 @@ class BoxSort(Node):
     lidar_range = []
 
     boxes = []
+    need_move=[]
     boxes_moved = []
 
     boxbool = False
     walls = [0.0,0.0,0.0,0.0]
+    green_wall = []
+    red_wall =[]
+
+    posGoals = []
 
     def __init__(self):
         super().__init__('BoxProcessing')
@@ -56,12 +62,33 @@ class BoxSort(Node):
         self.updater = self.create_timer(timer_period, self.Broadcast)
 
     def Broadcast(self):
-        msg_data = []
-        for boxes in self.boxes:
-            for info in boxes:
-                msg_data.append(float(info))
-        self.box_msg.data = msg_data
-        self.BoxinfoPub.publish(self.box_msg)
+        if len(self.green_wall)>0 and len(self.red_wall)>0:
+            #checking the distances between the boxes and the wall
+            self.need_move = []
+            for box in self.boxes:
+                if box[1]==0.0:
+                    self.PointExtrap(self.red_wall)
+                    distances = []
+                    for pot_goal in self.posGoals:
+                        distances.append(math.dist(box[2:],pot_goal))
+                    dist = distances[distances.index(min(distances))]
+                    if dist>0.25:
+                        self.need_move.append(box)
+                else:
+                    self.PointExtrap(self.green_wall)
+                    distances = []
+                    for pot_goal in self.posGoals:
+                        distances.append(math.dist(box[2:],pot_goal))
+                    dist = distances[distances.index(min(distances))]
+                    if dist>0.25:
+                        self.need_move.append(box)
+                   
+            msg_data = []
+            for boxes in self.need_move:
+                for info in boxes:
+                    msg_data.append(float(info))
+            self.box_msg.data = msg_data
+            self.BoxinfoPub.publish(self.box_msg)
 
     def wallCallback(self,walldata):
         for a in range(0,len(walldata.data), 3):
@@ -81,18 +108,20 @@ class BoxSort(Node):
                     #adding to the red wall,
                     self.walls[2] = wallX
                     self.walls[3] = wallY
+                    self.red_wall = self.walls[2:]
                 else:
                     self.walls[0] = wallX
                     self.walls[1] = wallY
+                    self.green_wall = self.walls[:2]
+                
         self.wall_msg.data =self.walls
         self.WallinfoPub.publish(self.wall_msg)
 
-
-
-
-
     def BoxId(self, Id):
         #this call back will be used to push "moved" box into some kind of storage to make sure the same boxes arent flagged again and moved
+        if Id.data[0] == -1.0:
+            self.boxes = []
+            self.need_move=[]
         for box in self.boxes:
             if box[0] == Id.data[0]:
                 
@@ -152,11 +181,7 @@ class BoxSort(Node):
                 estiX = self.Pos[0] + (self.lidar_range[i]* math.cos((x*0.013745704665780067) + math.radians(self.Pos[2])))
                 estiY = self.Pos[1] + (self.lidar_range[i]* math.sin((x*0.013745704665780067 + math.radians(self.Pos[2]))))
                 self.obs_cords[i]= {estiX},{estiY}  
-            
-            
-        #checking first middle and last points
-        #print(self.Pos[2])
-        #print(self.obs_cords[0]," ",self.obs_cords[145]," ",self.obs_cords[289])
+  
             
             
 
@@ -203,7 +228,7 @@ class BoxSort(Node):
 
                 #testing whether or not its in the list needing to be moved
                 for box in self.boxes:
-                    #using using euclidean distance to calculate the closeness to the coordinates and checking the colour
+                    #using using euclidean distance to calculate the closeness to the coordinates
                     boxloc = [box[2],box[3]]
                     testloc= [boxX,boxY]
                     box_dist = math.dist(testloc,boxloc)
@@ -212,7 +237,6 @@ class BoxSort(Node):
                     else:
                         boxfound = True
                         break
-
 
                 #checking whether or not the box is in the already moved list
                 
@@ -226,24 +250,53 @@ class BoxSort(Node):
                     else:
                         boxfound2 = True
                         break
+
+                #checking the distance to the wall that the box needs to go to
+                
                 if boxfound2 ==False and boxfound ==False:
                             
                     #add the box to the storage mechanism
                     self.boxes.append(boxinfo)
+
+    def PointExtrap(self,wall):
+        #calculating extra points along the plane/ wall the box could be pushed to
+
+        wall_mut = copy.deepcopy(wall)
+
+        for i in range(len(wall_mut)):
+            wall_mut[i] = math.sqrt(wall_mut[i]**2)
+        
+        if wall_mut[0]>wall_mut[1]:
+            
+            #wall should be on the x plane
+            #as wall is on x modify the y
+            wall_len = round(wall_mut[0]*2)
+            
+            iterate_num = wall_len/0.05
+            self.posGoals = []
+            for i in range(1,int(iterate_num/2)+1):
+
+                if self.green_wall == wall:
+
+                    self.posGoals.append([wall[0],(wall[1]-(i*0.05))])
                 
-               
-                        
+                    self.posGoals.append([wall[0],(wall[1]+(i*0.05))])
+                else:
+                    self.posGoals.append([wall[0],(wall[1]-(i*0.05))])
+                
+                    self.posGoals.append([wall[0],(wall[1]+(i*0.05))])
+    
 
-        #print("amount of boxes recorded ",len(self.boxes)," box close to wall ",self.boxbool)
-        #publishing the data on the boxes found in order for the brain to make a conscious decision on how to move a box and which box to use
-        msg_data = []
-        for boxes in self.boxes:
-            for info in boxes:
-                msg_data.append(float(info))
-        self.box_msg.data = msg_data
-        self.BoxinfoPub.publish(self.box_msg)
+        else:
+            #wall is probably on the y plane
+            pass
+       
+        if self.green_wall == wall:
+             self.posGoals.append([wall[0],wall[1]])
+        else:
+             self.posGoals.append([wall[0],wall[1]])
 
-
+        
             
 
 

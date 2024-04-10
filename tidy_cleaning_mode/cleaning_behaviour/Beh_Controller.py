@@ -52,13 +52,6 @@ class BehaviourController(Node):
             if self.red_wall[0]==None and self.green_wall[0]==None:
                 self.red_wall =msg.data[2:]
                 self.green_wall = msg.data[:2]
-                print(self.green_wall," ",self.red_wall)
-            
-                
-        
-            
-
-
 
     def Thinking(self):
         #checking if certain criteria have been met to perform certain tasks
@@ -71,7 +64,7 @@ class BehaviourController(Node):
         if 1.0 == resp.data[0]:
             self.state = [1.0,self.green_wall[0],self.green_wall[1],self.red_wall[0],self.red_wall[1]]
         if 2.0 == resp.data[0]:
-            self.state[0] == 2.0
+            self.state = [0.0,0.0,0.0]
 
     ##this method will be used in order to get the box information and make decisions such as what walls to push the boxes towards, which box to push etc
     def BoxCallback(self,boxes):
@@ -88,17 +81,7 @@ class BehaviourController(Node):
                 #they must be red so
                 self.red_boxes.append(split_box)
             split_box = []
-        # if len(self.green_boxes)>1 or len(self.red_boxes)>1:
-        #     self.state[0] = 1.0
-
-        
-
-            
-          
-        
-
-           
-        
+       
 def main():
     print('IM THINKING')
 

@@ -52,12 +52,12 @@ def generate_launch_description():
             # Add any necessary parameters here
         ),
         #seting up the robot nodes
-        Node(
-            package=  'tidy_cleaning_mode',
-            executable='Robot_start.py',
+        # Node(
+        #     package=  'tidy_cleaning_mode',
+        #     executable='Robot_start.py',
             
-            output='screen', 
-        ),
+        #     output='screen', 
+        # ),
         # Node(
         #     package=  'tidy_cleaning_mode',
         #     executable='Robot_pathplanning.py',
