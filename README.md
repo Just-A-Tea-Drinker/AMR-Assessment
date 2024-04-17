@@ -1,5 +1,5 @@
 # Solution up to level 3
-This is the complete solution to the 2024 AMR courseworl
+This is the complete solution to the 2024 AMR coursework
 
 ## Dependancies
 To get this solution to work properly you will need to run these commands
