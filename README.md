@@ -28,12 +28,17 @@ To get this to work as im not sure how to make dynamic paths make sure that thes
    <img width="455" alt="image" src="https://github.com/LCAS/ros2-teaching-ws/assets/1153084/ddc224eb-5980-4d9a-994e-b05aa1e9fc1d">
 
 Before using these packages please use `colcon build`
-if you are wanting to test this on an environment not already test or to be certain run `ros2 launch tidy_mapping_mode mapping.launch.py` this solution will work will obstacles, no matter the placement as long as the robot has a line of sight to the walls and boxes
+if you are wanting to test this on an environment not already tested or to be certain run `ros2 launch tidy_mapping_mode mapping.launch.py` this solution will work will obstacles, no matter the placement as long as the robot has a line of sight to the walls and boxes
 
 
 wait for the terminal to shutdown, once shutdown you can run `ros2 launch tidy_cleaning_mode tidy_cleaning.launch.py`
 this will automatically begin the tidying behaviour the robot will finish once the message "All moveable boxes have been moved"
-`crtl + c` to close the program,
+`crtl c` to close the program.
+
+## Known Problems
+- Even if the box is far away enough to be moved to us, the image processing and global path finding sometimes will not, meaning sometimes a viable path is missed
+- Topic names are different in real life compared to the topics used in this simulation
+  
 
 
 
