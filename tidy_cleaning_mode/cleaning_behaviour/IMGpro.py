@@ -1,10 +1,9 @@
 import rclpy
 from rclpy.node import Node
 
-from sensor_msgs.msg import CompressedImage
+from sensor_msgs.msg import Image
 from cv_bridge import CvBridge # Package to convert between ROS and OpenCV Images
 from std_msgs.msg import Int32MultiArray,Float32MultiArray
-
 ##OTHER library imports
 import cv2
 import numpy as np
@@ -14,9 +13,14 @@ class ImageProcessing(Node):
     wallsInfo = []
     state = 0.0
     def __init__(self):
+        """Spinning up the image processing.
+
+            Node used to find the the origin of the contours with this information you
+            can find the colour of the walls as well as the boxes as well
+        """
         super().__init__('ImagePRO')
         #subscribing to get the image to process
-        self.sub = self.create_subscription(CompressedImage, '/limo/depth_camera_link/image_raw/compressed', self.Cam_callback, 10)
+        self.sub = self.create_subscription(Image, '/limo/depth_camera_link/image_raw', self.Cam_callback, 10)
         #making an instance of open cv
         self.br = CvBridge()
         ##making a publisher for recording the walls
@@ -32,15 +36,10 @@ class ImageProcessing(Node):
         self.state = command.data[0]
         self.green_wall = command.data[1:3]
         self.red_wall = command.data[3:]
-        # if self.state == 1.0 and self.target_box!=None:
-        #     self.PathPlan()
     def Cam_callback(self,data):
         #setting up the windows to show the camera and the cv processing
         
             cv2.namedWindow("Live CAM",1)
-            #cv2.namedWindow("canned feed")
-            #cv2.namedWindow("Ori prediction")
-
             #converting the ROS image into the openCV
             cv_image = self.br.compressed_imgmsg_to_cv2(data,desired_encoding='bgr8')
             cv_image = cv2.cvtColor(cv_image, cv2.COLOR_BGR2HSV)
@@ -60,7 +59,7 @@ class ImageProcessing(Node):
             red_contours, hierarchy = cv2.findContours(red_frame_mask, cv2.RETR_TREE, cv2.CHAIN_APPROX_NONE)
             red_frame_contours = cv2.drawContours(cv_image, red_contours, -1, (0, 255, 0), 1)
             # Draw contour(s) (image to draw on, contours, contour number -1 to draw all contours, colour, thickness):
-            #current_frame_contours = cv2.drawContours(cv_image, contours, -1, (0, 255, 0), 1)
+            
             self.origins = []
             self.wallsInfo = []
             if len(green_contours) > 0:
@@ -138,14 +137,7 @@ class ImageProcessing(Node):
                                     self.origins.append(0)
                                     self.Origin.data = self.origins
                                     self.Cont_Origin.publish(self.Origin)
-                
-
-            
             #DISPLAY ONLY
-            
-            
-        
-            #cv2.imshow("Ori prediction", canny_img)
             cv_image = cv2.cvtColor(cv_image, cv2.COLOR_HSV2BGR)
             cv2.imshow("Live CAM", cv_image)
             cv2.waitKey(1)

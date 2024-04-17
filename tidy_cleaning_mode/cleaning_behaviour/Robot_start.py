@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 
-# An example of TurtleBot 3 drawing a 1 meter square.
+
 # Written for humble
 
 #ROS imports 
@@ -21,21 +21,15 @@ import IMGpro as IMGn
 import BoxSort as BSn
 import Robot_move as Rm
 import Beh_Controller as Bc
-import Robot_pathplanning as Rpp
 
-
-class Robot(Node):
-    def __init__(self):
-        super().__init__('Main_robot_controller')
-        ##subscribing to relevant topics 
-        self.sub = self.create_subscription(Float32MultiArray, '/Range_Pub', 1)
-        self.sub = self.create_subscription(Odometry,"/odom",self.PosCallback,1)
-        #need to change the image one as this will will actually be used to process image and identify targets
-        #self.sub = self.create_subscription(Image, '/limo/depth_camera_link/image_raw', self.Cam_callback, 10)
 
 
 
 def main(args=None):
+    """launching different nodes
+
+        launching the network of different nodes using the multi async spinner
+    """
     rclpy.init(args=args)
 
     try:
@@ -46,7 +40,7 @@ def main(args=None):
         Image_node = IMGn.ImageProcessing()
         Box_node = BSn.BoxSort()
         Move_node = Rm.Move()
-        PathPlan =Rpp.PathPlanning()
+        
         High_think = Bc.BehaviourController()
 
         executor = MultiThreadedExecutor()
@@ -56,7 +50,7 @@ def main(args=None):
         executor.add_node(Image_node)
         executor.add_node(Box_node)
         executor.add_node(Move_node)
-        #executor.add_node(PathPlan)
+        
 
 
         executor.add_node(High_think)

@@ -8,6 +8,19 @@ import math
 
 
 class BehaviourController(Node):
+    """Node for maintaining a recollection of the boxes info
+
+        Inputs:
+       
+        /Brain_Respond takes a response from a topic to change the behaviour
+        /Compressed_Odom, inputting the robot location with stamped yaw
+        /WallProcessed gets the wall information
+
+        Output:
+        
+        /conductor takes commands from the main brain
+        
+    """
     #state will be used to control the robot in essence becoming a high level conductor
     #0 = start scan, rotate 360 degrees find any boxes in local area
     #1 = moving boxes other behaviours for doing this will controlled on the lower level

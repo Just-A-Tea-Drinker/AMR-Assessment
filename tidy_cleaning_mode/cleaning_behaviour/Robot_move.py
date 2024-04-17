@@ -10,7 +10,6 @@ from std_msgs.msg import Float32MultiArray
 
 
 from geometry_msgs.msg import PoseStamped
-from sensor_msgs.msg import LaserScan
 from nav2_simple_commander.robot_navigator import BasicNavigator, TaskResult
 import rclpy
 from rclpy.duration import Duration
@@ -22,14 +21,26 @@ import math
 import time
 
 #custom import
-import local_pathfinding as lp
+
 import global_pathplanning as gp
 
 class Move(Node):
-    #used for RawScancallback
-    Xs=[]
-    Ys=[]
-    RawRanges = []
+    """Secondary brain node used to control the movement of the robot
+
+        Inputs:
+        
+        /Conductor, interprets the main command to control behaviour
+        /Range_Pub customised lidar topic
+        /Compressed_Odom, inputting the robot location with stamped yaw
+        /BoxInfo' getting the information of all the boxes
+
+        Output:
+        /Box_Id, what boxes are required to be moved
+
+
+        converts quaternion into eular whilst also maintaining a stamp of the initial yaw value
+        conversion function code was sourced from: https://stackoverflow.com/questions/56207448/efficient-quaternions-to-euler-transformation
+    """
     lin_vel=0.0
     ang_vel=0.0
 
@@ -56,9 +67,6 @@ class Move(Node):
     selecBox = [None]
     boxIndex = 0
 
-    isgreen = False
-    selecMove =False
-
     ##what walls to move the boxes at
     green_wall = []
     red_red = []
@@ -66,15 +74,10 @@ class Move(Node):
 
     #path finding
     path_made = False
-    offCourse = False
+   
     path = [None]
     bearings = [None]
     path2Start= []
-    path2index = 0
-    pathIndex = 0
-    
-    
-    path_count = 0
     
     to_start = False
     box_move =False
@@ -87,7 +90,6 @@ class Move(Node):
     globalpp=None
     inv_Box = []
 
-    retry_box = False
     count3 = 0
     count4= 0
     BothList =[]
@@ -169,7 +171,6 @@ class Move(Node):
     def StartCompCreate(self):
         #used to feed to nav2 to get to the start collision free hopefully
         waypoints = []
-        print("START PATH ",self.path2Start)
         if len(self.path2Start)>1:
             for i in range(len(self.path2Start)):
                 #time to convert the steps into quaternion with a goal orientation
@@ -299,22 +300,29 @@ class Move(Node):
         pass
     def BoxMove(self):
         #method used to control and move the boxes in a category
-        if(len(self.green_boxes) !=0 or len(self.red_boxes) !=0)and self.release == True:
+        new_green = []
+        new_red = []
+        viable_box = self.BoxVia()
+       
+        for gboxes in self.green_boxes:
+            if gboxes in viable_box:
+                new_green.append(gboxes)
+
+        for rboxes in self.red_boxes:
+            if rboxes in viable_box:
+                new_red.append(rboxes)
+        
+        if(len(new_green) !=0 or len(new_red) !=0)and self.release == True:
             self.count2 = 0
             self.selecBox[0] = None
             self.release = False
             self.Reset = False
             
         else:
-            if len(self.green_boxes) ==0 and len(self.red_boxes) ==0 and self.release == True:
+            if len(new_green) ==0 and len(new_red) ==0 and self.release == True:
                 print("The boxes that are moveable have been moved")
                 return
-        print("The release ", self.release)
-        print("The reset", self.Reset)
-        
-        
-        
-        print(self.selecBox[0])
+
         if self.release ==False:
             viable_box = self.BoxVia()
 
@@ -395,9 +403,7 @@ class Move(Node):
                         self.inv_Box.append(self.selecBox[0])
                     self.selecBox[0] = None
                     local_path = False
-                    
-                
-                #print(self.path_made)
+
                                         
                 if local_path ==True and self.selecBox[0] !=self.prev_box:
                    
@@ -547,13 +553,12 @@ class Move(Node):
                 self.brain_response.data = self.response
                 self.responder.publish(self.brain_response)
                 self.count = 0
+                self.count = 0
+                self.count1 =0
 
-        if self.release == True:
-            self.turn=True
-            self.response[0]=2.0
+        
             
-            self.count = 0
-            self.count1 =0
+            
 
     #updates what values that should be published 
     def SetMove(self):

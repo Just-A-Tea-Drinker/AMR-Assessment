@@ -8,6 +8,13 @@ from std_msgs.msg import Float32MultiArray
 import math
 
 class Positioning(Node):
+    """Node for processing the odom data to a custom topic
+
+        reads from /odom outputs to /Compressed_Odom
+
+        converts quaternion into eular whilst also maintaining a stamp of the initial yaw value
+        conversion function code was sourced from: https://stackoverflow.com/questions/56207448/efficient-quaternions-to-euler-transformation
+    """
     #0:X, 1:Y, 2:yaw, 3:starting yaw
     Robo_pos = [0,1,2,3]
     start_yaw = None
@@ -55,10 +62,8 @@ class Positioning(Node):
                 self.start_yaw = self.yaw
             self.Robo_pos[2] = self.yaw
             self.Robo_pos[3] = self.start_yaw
-            #print(self.Robo_pos)
             #publishing new compressed and relative information to custom topic
             self.Comp_odom.data = self.Robo_pos
-            #print(type(self.Comp_odom))
             self.Odom_pub.publish(self.Comp_odom)
 
 def main():

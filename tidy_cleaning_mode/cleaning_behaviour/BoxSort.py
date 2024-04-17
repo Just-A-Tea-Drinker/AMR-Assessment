@@ -20,7 +20,21 @@ from std_msgs.msg import Int32MultiArray,Float32MultiArray
 
 
 class BoxSort(Node):
+    """Node for maintaining a recollection of the boxes info
 
+        Inputs:
+        /Box_Id, what boxes are required to be moved
+        /Cont_Origin takes an [x,y] of an image
+        /Range_Pub customised lidar topic
+        /Compressed_Odom, inputting the robot location with stamped yaw
+        /WallInfo gets the wall information
+
+        Output:
+        
+        /BoxInfo' getting the information of all the boxes
+        /WallProcessed taking the pixel coordinate and return a cartesian transformation
+        
+    """
     Pos = [0,0,0]
     obs_cords = [None]*1
     lidar_range = []

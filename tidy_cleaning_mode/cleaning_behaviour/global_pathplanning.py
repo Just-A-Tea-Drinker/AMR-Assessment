@@ -6,13 +6,18 @@ import numpy as np
 import math
 from pathfinding.core.grid import Grid
 from pathfinding.finder.best_first import BestFirst
-from pathfinding.finder.a_star import AStarFinder
 from pathfinding.core.diagonal_movement import DiagonalMovement
 from pathfinding.core.heuristic import euclidean
 
 #class will be dedicated to for trying to deduce a path/set of instructions for the robot to move a target box to the correct wall avoiding the obstacles and other boxes
 class PathPlanning():
-   
+    """Path planning for the boxes and movement
+
+        Inputs:
+        
+        map file .pgm
+    
+    """
     #colour presets
     red =(0,0,255)
     green = (0,255,0) 
@@ -59,7 +64,13 @@ class PathPlanning():
         print("current image size ",self.width,"x",self.height) 
 
     def ObsBufferInc(self):
-       
+        """used to make the buffers for the obstacles
+
+         obstacle are larger buffer zone than the walls
+
+            
+    
+        """
         x = 20  # Starting x-coordinate of the region
         y = 20  # Starting y-coordinate of the region
         width = 580  # Width of the region
@@ -80,6 +91,11 @@ class PathPlanning():
         self.dialated_image = cv2.bitwise_and(expanded_black_pixels_mask, eroded_mask)
 
     def douglas_peucker(self,points, epsilon):
+            """path simplification algorithm used to take a multi point path into a core component path
+            
+                    
+            
+            """ 
             if len(points) <= 2:
                 return points
             
@@ -107,6 +123,7 @@ class PathPlanning():
         return abs((end[1] - start[1]) * point[0] - (end[0] - start[0]) * point[1] + end[0] * start[1] - end[1] * start[0]) / ((end[1] - start[1]) ** 2 + (end[0] - start[0]) ** 2) ** 0.5 
 
     def GetBearing(self,path):
+        #used to find the bearing of a path
         bearings= []
         if self.target_box[1] == 1.0:
             x = 570
@@ -127,13 +144,13 @@ class PathPlanning():
                 px = path[i][0]+int(60*math.cos(push_bearing))
                 py = path[i][1]+int(60*math.sin(push_bearing))
                 bearings.append([px,py])
-                #cv2.circle(opencv_image, (px,py), 5, (255, 0, 0), -1)
-                #cv2.circle(dilated_image, (px,py), 5, (255, 0, 0), -1)
+               
         
         return bearings
 
     def InterBear(self,bearing):
         #drawing the temporary box to pathfind to each bearing
+        #method used to find an intermediate point between the bearing and the path point
         inter_paths = []
         temp_map = self.dialated_image
         self.path = self.path[1:]
@@ -163,7 +180,7 @@ class PathPlanning():
                 inter_paths.append(inter[costs.index(min(costs))])
             
         comp_path=[]
-        #inter_paths = inter_paths[1:]
+       
         inter_paths = inter_paths[:-1]
         temp_map = cv2.cvtColor(self.dialated_image, cv2.COLOR_GRAY2BGR)
         bruh = cv2.cvtColor(self.dialated_image, cv2.COLOR_GRAY2BGR)
@@ -195,6 +212,7 @@ class PathPlanning():
                     
         
     def GetPixel(self):
+        #finding the closest goal point
         if self.target_box[1] == 1.0:
             x =570
             distances = []
@@ -253,15 +271,10 @@ class PathPlanning():
        
         return[x,mindex]
 
-        
-        
-        
-        #return closest_pixel
 
     def MapOverlay(self):
         
-        coordinate_min = -1.47
-        coordinate_max = 1.47
+        #adding the boxes onto the map
         for boxes in self.green_boxes:
             box_x =  int(((boxes[2] - -1.5)/3) * self.width)
             box_y = 600-int(((boxes[3]  - - 1.5)/3) * self.height)
@@ -354,7 +367,7 @@ class PathPlanning():
         return converted
     
     def PathMakingBackup(self,botx,boty,target):
-            ##Main function that will provide the path planning
+            ##Main function that will provide the path planning based on a customised method
             self.target_box=target
             if self.target_box[0] !=None:
                 pot_goals = []
@@ -518,7 +531,7 @@ class PathPlanning():
             push_bearing = math.atan2(cur[1]-y,cur[0]-x)
             px = x+int(60*math.cos(push_bearing))
             py = y+int(60*math.sin(push_bearing))
-            #print([[x,y]])
+            
             
         
             #checking if the move is valid of not

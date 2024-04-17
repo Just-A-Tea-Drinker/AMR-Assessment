@@ -7,6 +7,10 @@ from std_msgs.msg import Float32MultiArray
 #this is a node dedicated for the the scanning of the lidar  data
 
 class GetScan(Node):
+    """Node for processing the scan data to a custom topic
+
+        reads from /scan outputs to /Range_Pub
+    """
     ranges = []
     def __init__(self):
         super().__init__('GetScan')
@@ -35,11 +39,6 @@ class GetScan(Node):
 
 def main(args=None):
     print('Starting custom scan topic')
-
-   
-
-   
-
     try:
         print("Running custom nodes")
         rclpy.init(args=args)
