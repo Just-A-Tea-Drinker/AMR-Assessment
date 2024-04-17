@@ -9,7 +9,7 @@ To get this solution to work properly you will need to run these commands
 `pip install pathfinding`
 
 ## Correct setup
-To get this to work as im not sure how to make dynamic paths make sure that these packages are located in `where ever stored\AMR_Workshops\AMR-Assessment` unless you are cloning this repo, then install the dependacies
+To get this to work as im not sure how to make dynamic paths make sure that these packages are located in your dev container at `where ever stored\AMR_Workshops\AMR-Assessment` unless you are cloning this repo, then install the dependacies and continue
 
 
 ## Usage
