@@ -8,7 +8,7 @@ To get this solution to work properly you will need to run these commands
 `sudo apt-install ros-humble-twist-mux`
 `pip install pathfinding`
 
-##Correct setup
+## Correct setup
 To get this to work as im not sure how to make dynamic paths make sure that these packages are located in `where ever stored\AMR_Workshops\AMR-Assessment` unless you are cloning this repo, then install the dependacies
 
 
